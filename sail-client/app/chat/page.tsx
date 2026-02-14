@@ -1,0 +1,127 @@
+"use client";
+
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import ChatShell from '@/components/chat/ChatShell';
+import ChatPanel from '@/components/chat/ChatPanel';
+import ThreadList from '@/components/chat/ThreadList';
+import { ChatStoreProvider, useChatStore, useChatThreads } from '@/hooks';
+import { useI18n } from '@/lib/i18n';
+import { ChatApi } from '@/lib/chatApi';
+
+function ChatPageHeader() {
+  const { t } = useI18n();
+  return (
+    <div className="chat-header">
+      <div>
+        <h1>{t('chat.pageTitle')}</h1>
+        <p>{t('chat.pageDescription')}</p>
+      </div>
+    </div>
+  );
+}
+
+function ChatPageContentInner() {
+  const { t } = useI18n();
+  const { threads, loading, error, reload, updateThread } = useChatThreads();
+  const { selectedThreadId, selectThread } = useChatStore();
+  const [viewerId, setViewerId] = useState<number | null>(null);
+  const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
+  const hasSyncedAvailability = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const readProfile = () => {
+      try {
+        const raw = localStorage.getItem('profile');
+        if (!raw) {
+          setViewerId(null);
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        const uid = parsed?.user_id ?? parsed?.id ?? null;
+        setViewerId(typeof uid === 'number' ? uid : null);
+      } catch {
+        setViewerId(null);
+      }
+    };
+    readProfile();
+    window.addEventListener('auth-changed', readProfile);
+    return () => window.removeEventListener('auth-changed', readProfile);
+  }, []);
+
+  // Sync listing availability when threads are loaded
+  useEffect(() => {
+    if (loading || hasSyncedAvailability.current || threads.length === 0) return;
+
+    hasSyncedAvailability.current = true;
+    ChatApi.syncAvailability()
+      .then(() => {
+        // Reload threads to get updated availability
+        reload();
+      })
+      .catch((err) => {
+        console.error('Failed to sync chat availability:', err);
+      });
+  }, [loading, threads.length, reload]);
+
+  const currentThread = useMemo(
+    () => {
+      if (!selectedThreadId) return null;
+      return threads.find((t) => String(t.id) === String(selectedThreadId)) || null;
+    },
+    [threads, selectedThreadId],
+  );
+
+  // When a thread is selected, we assume we want to open the detail view on mobile
+  const handleSelectThread = (threadId: string) => {
+    selectThread(threadId);
+    setIsMobileDetailOpen(true);
+  };
+
+  const handleBack = () => {
+    setIsMobileDetailOpen(false);
+    // Optional: Deselect thread if desired, but keeping it selected might be fine
+    // until another is selected. For now, we just close the view.
+    // If we want to truly clear selection:
+    // selectThread(null as any); // assuming selectThread handles null or empty string
+  };
+
+  return (
+    <ChatShell
+      header={<ChatPageHeader />}
+      isMobileDetailOpen={isMobileDetailOpen}
+      sidebar={(
+        <ThreadList
+          threads={threads}
+          selectedId={selectedThreadId}
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          onSelect={(thread) => handleSelectThread(thread.id)}
+        />
+      )}
+      conversation={currentThread ? (
+        <ChatPanel
+          thread={currentThread}
+          viewerId={viewerId}
+          onThreadChange={updateThread}
+          onBack={handleBack}
+        />
+      ) : (
+        <div className="chat-panel__empty">
+          <div>
+            <p>{t('chat.selectConversation')}</p>
+          </div>
+        </div>
+      )}
+    />
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <ChatStoreProvider>
+      <ChatPageContentInner />
+    </ChatStoreProvider>
+  );
+}
