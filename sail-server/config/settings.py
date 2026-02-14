@@ -86,6 +86,9 @@ if os.environ.get("POSTGRES_HOST"):
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
             "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            "OPTIONS": {
+                "sslmode": "require",
+            },
         }
     }
 else:
@@ -161,17 +164,6 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.AllowAny",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    # Throttling disabled for development
-    # "DEFAULT_THROTTLE_CLASSES": (
-    #     "rest_framework.throttling.ScopedRateThrottle",
-    #     "rest_framework.throttling.UserRateThrottle",
-    #     "rest_framework.throttling.AnonRateThrottle",
-    # ),
-    # "DEFAULT_THROTTLE_RATES": {
-    #     "otp": "5/minute",
-    #     "user": "1000/day",
-    #     "anon": "200/day",
-    # },
 }
 
 # OpenSearch
@@ -206,8 +198,6 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8314735056:AAEQSsb7cg
 TELEGRAM_LOGIN_MAX_AGE = int(os.environ.get("TELEGRAM_LOGIN_MAX_AGE", "86400"))  # seconds (default 1 day)
 TELEGRAM_WEBHOOK_SECRET_TOKEN = os.environ.get("TELEGRAM_WEBHOOK_SECRET_TOKEN", "")
 WEB_BASE_URL = os.environ.get("WEB_BASE_URL", "https://sail.uz")
-# If empty, webhook accepts all requests (less secure but simpler for dev)
-# In production, generate random token: openssl rand -hex 32
 
 # Logging (basic)
 LOGGING = {
